@@ -38,9 +38,30 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/spots/${spot.id}/reports`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to load history');
+      const res = await fetch(`/api/spots/${spot.id}/reports`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) {
+        let msg = 'Failed to load history';
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const d = await res.json();
+            msg = d.error || msg;
+          } else {
+            msg = 'History service is temporarily unavailable. Please retry.';
+          }
+        } catch {
+          msg = 'History service is temporarily unavailable. Please retry.';
+        }
+        throw new Error(msg);
+      }
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Unexpected response format. Please retry.');
+      }
       setReports(data.reports || []);
     } catch (err: any) {
       console.error('History fetch error:', err);

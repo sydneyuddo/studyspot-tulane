@@ -43,3 +43,16 @@ test('quota, model, and permission errors have distinct messages', () => {
   assert.match(aiError({status:403}),/API key/);
   assert.match(aiError({status:503}),/busy/);
 });
+
+test('synthetic test reports filter prevents displaying test probe records', () => {
+  const reports = [
+    report({ id: 'rep_test_probe_1', spotId: 'library', crowd: 'packed' }),
+    report({ id: 'rep_real_student_1', spotId: 'library', crowd: 'light' })
+  ];
+  const cleaned = reports.filter(r => !r.id.startsWith('rep_test_'));
+  assert.equal(cleaned.length, 1);
+  assert.equal(cleaned[0].id, 'rep_real_student_1');
+  const status = computeSpotStatus('library', cleaned);
+  assert.equal(status.currentStatus?.crowd, 'light');
+});
+

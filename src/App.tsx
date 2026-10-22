@@ -7,6 +7,7 @@ import { CheckInModal } from './components/CheckInModal.tsx';
 import { HistoryModal } from './components/HistoryModal.tsx';
 import { AiAdvisorModal } from './components/AiAdvisorModal.tsx';
 import { PhoneChecklistModal } from './components/PhoneChecklistModal.tsx';
+import { SpotDetailsModal } from './components/SpotDetailsModal.tsx';
 import { calculateDistanceMeters } from './utils/geo.ts';
 import { 
   Compass, 
@@ -31,7 +32,7 @@ export default function App() {
 
   // Selection & Modal State
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
-  const [detailsSpotId, setDetailsSpotId] = useState<string | null>(null);
+  const [detailsSpot, setDetailsSpot] = useState<Spot | null>(null);
   const [checkInSpot, setCheckInSpot] = useState<Spot | null>(null);
   const [historySpot, setHistorySpot] = useState<Spot | null>(null);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState<boolean>(false);
@@ -54,9 +55,31 @@ export default function App() {
     setFetchError(null);
 
     try {
-      const res = await fetch('/api/spots');
-      if (!res.ok) throw new Error('Failed to load study spot data');
-      const data = await res.json();
+      const res = await fetch('/api/spots', {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) {
+        let msg = `Server unavailable (${res.status}).`;
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errData = await res.json();
+            msg = errData.error || msg;
+          } else {
+            msg = 'StudySpot server is temporarily unavailable. Please tap retry in a moment.';
+          }
+        } catch {
+          msg = 'StudySpot server is temporarily unavailable. Please tap retry in a moment.';
+        }
+        throw new Error(msg);
+      }
+
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Server returned an unexpected response format. Please refresh the page.');
+      }
       
       const rawSpots: Spot[] = data.spots || [];
       
@@ -195,21 +218,6 @@ export default function App() {
       });
   }, [spots, selectedCategory, searchQuery, sortBy]);
 
-  const handleShowDetails = useCallback((spot: Spot) => {
-    setSelectedSpotId(spot.id);
-    setDetailsSpotId(spot.id);
-    setViewMode('cards');
-  }, []);
-
-  useEffect(() => {
-    if (viewMode !== 'cards' || !detailsSpotId) return;
-    const card = document.getElementById(`spot-card-${detailsSpotId}`);
-    if (!card) return;
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    card.focus({ preventScroll: true });
-    setDetailsSpotId(null);
-  }, [viewMode, detailsSpotId]);
-
   const activeSpot = useMemo(() => {
     return spots.find((s) => s.id === selectedSpotId) || null;
   }, [spots, selectedSpotId]);
@@ -281,8 +289,8 @@ export default function App() {
                   spots={filteredSpots}
                   selectedSpotId={selectedSpotId}
                   onSelectSpot={(spot) => setSelectedSpotId(spot.id)}
-                  onShowDetails={handleShowDetails}
                   onOpenCheckIn={(spot) => setCheckInSpot(spot)}
+                  onOpenDetails={(spot) => setDetailsSpot(spot)}
                   userLocation={userLocation}
                   onUseLocation={handleUseLocation}
                   isLocating={isLocating}
@@ -352,8 +360,8 @@ export default function App() {
                     spots={filteredSpots}
                     selectedSpotId={selectedSpotId}
                     onSelectSpot={(spot) => setSelectedSpotId(spot.id)}
-                  onShowDetails={handleShowDetails}
                     onOpenCheckIn={(spot) => setCheckInSpot(spot)}
+                    onOpenDetails={(spot) => setDetailsSpot(spot)}
                     userLocation={userLocation}
                     onUseLocation={handleUseLocation}
                     isLocating={isLocating}
@@ -406,6 +414,22 @@ export default function App() {
       </footer>
 
       {/* Modals */}
+      {detailsSpot && (
+        <SpotDetailsModal
+          spot={detailsSpot}
+          isOpen={Boolean(detailsSpot)}
+          onClose={() => setDetailsSpot(null)}
+          onOpenCheckIn={(spot) => {
+            setDetailsSpot(null);
+            setCheckInSpot(spot);
+          }}
+          onOpenHistory={(spot) => {
+            setDetailsSpot(null);
+            setHistorySpot(spot);
+          }}
+        />
+      )}
+
       {checkInSpot && (
         <CheckInModal
           spot={checkInSpot}
@@ -448,4 +472,3 @@ export default function App() {
     </div>
   );
 }
-

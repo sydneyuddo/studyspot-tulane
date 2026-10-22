@@ -66,7 +66,7 @@ StudySpot includes initial Uptown campus locations with approximate centroid coo
 
 ## 🔒 Gemini AI Privacy & Truthful States
 
-- **Model:** Google Gemini (`gemini-3.8-flash`) initialized via server-side `@google/genai` with `process.env.GEMINI_API_KEY`.
+- **Model:** Google Gemini (`gemini-3.1-flash-lite` configured via server `GEMINI_MODEL`) initialized via server-side `@google/genai` with `process.env.GEMINI_API_KEY`.
 - **Photo Analysis:** Analyzed in-memory; photos are **never** stored publicly or persisted on disk.
 - **Objective Constraints:** Gemini is strictly instructed to evaluate only visible empty seating, lighting, and clearly discernible outlets in the camera angle. Gemini is prohibited from guessing sound/noise levels or whole-building occupancy from a still photo.
 - **No Unlabeled Fallbacks:** If the AI model encounters temporary demand spikes or downtime, an explicit *"AI service is temporarily experiencing high demand"* status is returned with a **Retry** action.

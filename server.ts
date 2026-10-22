@@ -65,16 +65,21 @@ async function loadReports(spotId?: string): Promise<SpotReport[]> {
       typeof r.timestamp === 'number' && Number.isFinite(r.timestamp) && r.timestamp <= Date.now() &&
       ['empty', 'light', 'moderate', 'busy', 'packed'].includes(r.crowd) &&
       ['silent', 'quiet', 'moderate', 'loud'].includes(r.noise) &&
-      ['plentiful', 'some', 'rare', 'none', 'unknown'].includes(r.outlets));
+      ['plentiful', 'some', 'rare', 'none', 'unknown'].includes(r.outlets) &&
+      !r.id.startsWith('rep_test_'));
   } catch (error) { firestoreAvailable = false; throw error; }
 }
 
+const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+
 async function generateAI(request: any) {
   if (!ai) throw new Error('AI is not configured.');
+  const modelToUse = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await ai.models.generateContent({ ...request,
-        model: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+      return await ai.models.generateContent({
+        ...request,
+        model: modelToUse,
         config: { ...request.config, httpOptions: { timeout: 12000 } },
       });
     } catch (err: any) {
@@ -313,7 +318,6 @@ Return ONLY a valid JSON object matching this schema:
 }`;
 
       const response = await generateAI({
-        model: 'gemini-3.8-flash',
         contents: {
           parts: [
             {
@@ -416,7 +420,6 @@ Return ONLY a valid JSON object matching this schema:
 }`;
 
       const response = await generateAI({
-        model: 'gemini-3.8-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',

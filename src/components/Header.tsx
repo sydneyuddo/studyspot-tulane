@@ -205,7 +205,7 @@ export const Header: React.FC<HeaderProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search Howie-T, LBC, PJ's, quiet zones..."
-            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 shadow-2xs"
+            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-base sm:text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 shadow-2xs"
           />
         </div>
 
@@ -236,9 +236,10 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1.5 text-xs text-slate-500 ml-auto">
           <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
           <select
+            aria-label="Sort study spots"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+            className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-base sm:text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-700"
           >
             <option value="distance" disabled={!userLocation}>
               Sort: {userLocation ? 'Nearest (Straight-Line)' : 'Distance (Enable GPS)'}

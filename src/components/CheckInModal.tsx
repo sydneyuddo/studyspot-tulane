@@ -106,8 +106,10 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(file.type)) {
-        setPhotoAnalysisError('Please choose an image file.'); return;
+      const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+      if (!isImage) {
+        setPhotoAnalysisError('Unsupported image format. Please select a JPEG, PNG, or WebP photo.');
+        return;
       }
       if (file.size > 15 * 1024 * 1024) {
         setPhotoAnalysisError('Image file is too large. Please select a photo under 15MB.');
@@ -143,9 +145,27 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
         }),
       });
 
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to analyze photo');
+        let msg = 'Failed to analyze photo';
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errData = await res.json();
+            msg = errData.error || msg;
+          } else {
+            msg = 'Photo analysis service is temporarily unavailable. Please retry.';
+          }
+        } catch {
+          msg = 'Photo analysis service is temporarily unavailable. Please retry.';
+        }
+        throw new Error(msg);
+      }
+
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Received unexpected response format. Please retry.');
       }
 
       setPhotoAnalysis(data.analysis);
@@ -194,9 +214,27 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to post check-in');
+        let msg = 'Failed to post check-in';
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errData = await res.json();
+            msg = errData.error || msg;
+          } else {
+            msg = 'Check-in service is temporarily unavailable. Please retry in a few moments.';
+          }
+        } catch {
+          msg = 'Check-in service is temporarily unavailable. Please retry in a few moments.';
+        }
+        throw new Error(msg);
+      }
+
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Received unexpected response format. Please retry.');
       }
 
       setSubmitSuccess(true);
@@ -262,7 +300,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                     aria-label="Floor or zone"
                     value={selectedFloor}
                     onChange={(e) => setSelectedFloor(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-base sm:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-700"
                   >
                     {spot.floorsOrZones.map((zone, idx) => (
                       <option key={idx} value={zone}>
@@ -397,23 +435,28 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                 />
 
                 {!photoBase64 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition"
-                    >
-                      <Camera className="w-4 h-4 text-emerald-800" />
-                      Take Photo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      className="min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition"
-                    >
-                      <Upload className="w-4 h-4 text-emerald-800" />
-                      Upload Photo
-                    </button>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition"
+                      >
+                        <Camera className="w-4 h-4 text-emerald-800" />
+                        Take Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        className="min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition"
+                      >
+                        <Upload className="w-4 h-4 text-emerald-800" />
+                        Upload Photo
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 text-center leading-tight">
+                      Take Photo opens rear camera. If camera is blocked in browser settings, allow camera in Safari/Chrome site settings or use Upload Photo.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -518,7 +561,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                   onChange={(e) => setNote(e.target.value.slice(0, 280))}
                   placeholder="e.g. 4th floor quiet carrels have plenty of open seats near north windows, AC running cold..."
                   rows={2}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 resize-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-base sm:text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-700 resize-none"
                 />
               </div>
 

@@ -102,8 +102,8 @@ export const LocationCard: React.FC<LocationCardProps> = ({
             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>{spot.address}</span>
             {spot.distanceMeters !== undefined && (
-              <span className="font-semibold text-emerald-700 ml-1.5">
-                • {formatDistance(spot.distanceMeters)}
+              <span className="font-semibold text-emerald-700 ml-1.5" title="Spherical straight-line distance calculated on device">
+                • {formatDistance(spot.distanceMeters)} (straight-line)
               </span>
             )}
           </p>

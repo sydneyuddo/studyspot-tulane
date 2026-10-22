@@ -56,9 +56,27 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
         }),
       });
 
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch recommendations');
+        let msg = 'Failed to fetch recommendations';
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errData = await res.json();
+            msg = errData.error || msg;
+          } else {
+            msg = 'AI recommendation service is temporarily unavailable. Please retry.';
+          }
+        } catch {
+          msg = 'AI recommendation service is temporarily unavailable. Please retry.';
+        }
+        throw new Error(msg);
+      }
+
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Received unexpected response format. Please retry.');
       }
 
       setResult(data.data);
