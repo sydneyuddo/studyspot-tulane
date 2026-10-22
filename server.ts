@@ -1,4 +1,5 @@
 import { computeSpotStatus } from './server/reportStatus.ts';
+import { runAIWithRetry } from './server/aiRetry.ts';
 import express from 'express';
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
@@ -72,39 +73,29 @@ async function loadReports(spotId?: string): Promise<SpotReport[]> {
 
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
 
-async function generateAI(request: any) {
+async function generateAI(request: any, requestId = randomUUID()) {
   if (!ai) throw new Error('AI is not configured.');
-  // Prioritize verified-fast gemini-3-flash-preview to avoid 30s hangs on high-demand variants
-  const candidateModels = Array.from(new Set([
-    'gemini-3-flash-preview',
-    process.env.GEMINI_MODEL,
-    'gemini-flash-latest',
-    'gemini-3.1-flash-lite',
-  ])).filter(Boolean) as string[];
-
-  let lastError: any = null;
-  for (const model of candidateModels) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        return await ai.models.generateContent({
-          ...request,
-          model,
-          config: { ...request.config },
-        });
-      } catch (err: any) {
-        lastError = err;
-        const status = Number(err?.status || err?.statusCode || 0);
-        console.warn(`Gemini model ${model} (attempt ${attempt + 1}) returned status ${status}: ${err?.message || ''}`);
-        if (![400, 408, 429, 500, 502, 503, 504].includes(status)) {
-          throw err;
-        }
-        if (attempt === 0) {
-          await new Promise((r) => setTimeout(r, 500));
-        }
-      }
+  // Honor the deployed, working model. Never silently rotate models on errors.
+  const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
+  return runAIWithRetry(async (attempt) => {
+    const started = Date.now();
+    try {
+      const response = await ai.models.generateContent({
+        ...request,
+        model,
+        config: {
+          ...request.config,
+          abortSignal: AbortSignal.timeout(14000),
+          httpOptions: { timeout: 14000, retryOptions: { attempts: 1 } },
+        },
+      });
+      console.info(JSON.stringify({ event: 'gemini', requestId, model, attempt, status: 200, elapsedMs: Date.now() - started }));
+      return response;
+    } catch (err: any) {
+      console.warn(JSON.stringify({ event: 'gemini', requestId, model, attempt, status: Number(err?.status || err?.statusCode || 0), elapsedMs: Date.now() - started }));
+      throw err;
     }
-  }
-  throw lastError || new Error('AI request failed across all candidate models.');
+  });
 }
 
 // In-memory rate limiting map: ip:spotId -> timestamp ms
@@ -367,6 +358,10 @@ Return ONLY a valid JSON object matching this schema:
 
   // API Route: Real Gemini Personalized Recommendations
   app.post('/api/recommendations', async (req: Request, res: Response) => {
+    const requestId = randomUUID();
+    const started = Date.now();
+    res.setHeader('X-Request-ID', requestId);
+    let stage = 'validation';
     try {
       const { preference, studyMode, distances = {} } = req.body;
       if ((preference != null && (typeof preference !== 'string' || preference.length > 150)) ||
@@ -381,6 +376,7 @@ Return ONLY a valid JSON object matching this schema:
         });
       }
 
+      stage = 'database';
       const reports = await loadReports();
       const currentSpotsData = TULANE_SPOTS_METADATA.map((spot) => {
         const status = computeSpotStatus(spot.id, reports);
@@ -436,30 +432,14 @@ Return ONLY a valid JSON object matching this schema:
   ]
 }`;
 
-      let parsed = null;
-      let lastErr = null;
-      for (let genAttempt = 0; genAttempt < 2; genAttempt++) {
-        try {
-          const response = await generateAI({
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-            },
-          });
-          parsed = parseRecommendations(response.text || '', TULANE_SPOTS_METADATA);
-          if (parsed) break;
-        } catch (e: any) {
-          lastErr = e;
-          console.warn(`Recommendation generation attempt ${genAttempt + 1} notice:`, e?.message || e);
-          if (genAttempt === 0) {
-            await new Promise((r) => setTimeout(r, 400));
-          }
-        }
-      }
-
-      if (!parsed) {
-        throw lastErr || new Error('Failed to generate valid recommendations.');
-      }
+      stage = 'gemini';
+      const response = await generateAI({
+        contents: prompt,
+        config: { responseMimeType: 'application/json' },
+      }, requestId);
+      stage = 'validation';
+      const parsed = parseRecommendations(response.text || '', TULANE_SPOTS_METADATA);
+      console.info(JSON.stringify({ event: 'advisor', requestId, status: 200, elapsedMs: Date.now() - started }));
 
       res.json({
         success: true,
@@ -469,8 +449,9 @@ Return ONLY a valid JSON object matching this schema:
         },
       });
     } catch (err: any) {
-      console.error('Gemini AI error generating recommendations:', err);
-      res.status(503).json({ error: aiError(err) });
+      const status = Number(err?.status || err?.statusCode || 0) === 429 ? 429 : 503;
+      console.warn(JSON.stringify({ event: 'advisor', requestId, stage, status, elapsedMs: Date.now() - started }));
+      res.status(status).json({ error: stage === 'database' ? 'Current campus reports could not be loaded. Please retry shortly.' : aiError(err), requestId });
     }
   });
 
