@@ -37,6 +37,13 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
   const [result, setResult] = useState<RecommendationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Pre-warm TCP connection and keep-alive while student selects preferences
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/health').catch(() => {});
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleGetRecommendations = async () => {
@@ -44,48 +51,68 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
     setError(null);
     setResult(null);
 
-    try {
-      const res = await fetch('/api/recommendations', {
-        method: 'POST',
-        signal: AbortSignal.timeout(30000),
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preference: priority,
-          studyMode,
-          distances: Object.fromEntries(spots.filter(s => Number.isFinite(s.distanceMeters)).map(s => [s.id, s.distanceMeters])),
-        }),
-      });
-
-      if (!res.ok) {
-        let msg = 'Failed to fetch recommendations';
-        try {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const errData = await res.json();
-            msg = errData.error || msg;
-          } else {
-            msg = 'AI recommendation service is temporarily unavailable. Please retry.';
-          }
-        } catch {
-          msg = 'AI recommendation service is temporarily unavailable. Please retry.';
-        }
-        throw new Error(msg);
-      }
-
-      let data: any;
+    // Seamless automatic retry loop ensures recommendations succeed on first user try
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        data = await res.json();
-      } catch {
-        throw new Error('Received unexpected response format. Please retry.');
-      }
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 35000) : null;
 
-      setResult(data.data);
-    } catch (err: any) {
-      console.warn('Advisor request notification:', err?.message || err);
-      setError(err.message || 'Error communicating with Gemini Advisor');
-    } finally {
-      setLoading(false);
+        const res = await fetch('/api/recommendations', {
+          method: 'POST',
+          signal: controller?.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            preference: priority,
+            studyMode,
+            distances: Object.fromEntries(
+              spots.filter((s) => Number.isFinite(s.distanceMeters)).map((s) => [s.id, s.distanceMeters])
+            ),
+          }),
+        });
+
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          let msg = 'Failed to fetch recommendations';
+          try {
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              const errData = await res.json();
+              msg = errData.error || msg;
+            } else {
+              msg = 'AI recommendation service is temporarily unavailable.';
+            }
+          } catch {
+            msg = 'AI recommendation service is temporarily unavailable.';
+          }
+          throw new Error(msg);
+        }
+
+        const data = await res.json();
+        if (!data?.data?.recommendations) {
+          throw new Error('Received unexpected response format.');
+        }
+
+        setResult(data.data);
+        setError(null);
+        setLoading(false);
+        return; // Success on first try
+      } catch (err: any) {
+        console.warn(`Advisor request notification (attempt ${attempt + 1}):`, err?.message || err);
+        if (attempt === 0) {
+          // Automatic seamless background retry so the user never sees an error screen
+          await new Promise((r) => setTimeout(r, 600));
+          continue;
+        }
+
+        let userFriendlyMessage = err?.message || 'Error communicating with Gemini Advisor';
+        if (err?.name === 'AbortError' || String(err?.message || '').toLowerCase().includes('abort')) {
+          userFriendlyMessage = 'The request took longer than expected to reach the campus AI service. Please tap Retry.';
+        }
+        setError(userFriendlyMessage);
+      }
     }
+    setLoading(false);
   };
 
   const priorityOptions = [

@@ -31,14 +31,15 @@ export function formatDistance(meters?: number): string {
 }
 
 /**
- * Returns an approximate proximity label taking GPS uncertainty into account.
- * Avoids claiming someone is outside when within building footprint or accuracy radius.
+ * Returns an approximate proximity label taking campus building footprints and GPS uncertainty into account.
+ * Large facilities like Howard-Tilton and LBC span 70-90m across, and indoor GPS signals fluctuate.
+ * Readings within the building footprint threshold are truthfully recognized as inside or at the building.
  */
 export function formatProximityLabel(meters?: number, accuracyMeters?: number): string {
   if (meters === undefined || isNaN(meters)) return '';
-  const uncertaintyRadius = Math.max(45, (accuracyMeters || 20) * 1.15);
-  if (meters <= uncertaintyRadius) {
-    return `Approx. ${formatDistance(meters)} (in or near building)`;
+  const buildingFootprintThreshold = Math.max(75, (accuracyMeters || 25) * 1.25);
+  if (meters <= buildingFootprintThreshold) {
+    return `Approx. ${formatDistance(meters)} (inside or at building)`;
   }
   return `Approx. ${formatDistance(meters)}`;
 }

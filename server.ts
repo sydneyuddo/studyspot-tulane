@@ -84,21 +84,23 @@ async function generateAI(request: any) {
 
   let lastError: any = null;
   for (const model of candidateModels) {
-    try {
-      return await ai.models.generateContent({
-        ...request,
-        model,
-        config: {
-          ...request.config,
-          httpOptions: { timeout: 12000 },
-        },
-      });
-    } catch (err: any) {
-      lastError = err;
-      const status = Number(err?.status || err?.statusCode || 0);
-      console.warn(`Gemini model ${model} returned error status ${status}: ${err?.message || ''}`);
-      if (![400, 429, 500, 502, 503, 504].includes(status)) {
-        throw err;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await ai.models.generateContent({
+          ...request,
+          model,
+          config: { ...request.config },
+        });
+      } catch (err: any) {
+        lastError = err;
+        const status = Number(err?.status || err?.statusCode || 0);
+        console.warn(`Gemini model ${model} (attempt ${attempt + 1}) returned status ${status}: ${err?.message || ''}`);
+        if (![400, 408, 429, 500, 502, 503, 504].includes(status)) {
+          throw err;
+        }
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
       }
     }
   }
@@ -434,14 +436,30 @@ Return ONLY a valid JSON object matching this schema:
   ]
 }`;
 
-      const response = await generateAI({
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
+      let parsed = null;
+      let lastErr = null;
+      for (let genAttempt = 0; genAttempt < 2; genAttempt++) {
+        try {
+          const response = await generateAI({
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json',
+            },
+          });
+          parsed = parseRecommendations(response.text || '', TULANE_SPOTS_METADATA);
+          if (parsed) break;
+        } catch (e: any) {
+          lastErr = e;
+          console.warn(`Recommendation generation attempt ${genAttempt + 1} notice:`, e?.message || e);
+          if (genAttempt === 0) {
+            await new Promise((r) => setTimeout(r, 400));
+          }
+        }
+      }
 
-      const parsed = parseRecommendations(response.text || '', TULANE_SPOTS_METADATA);
+      if (!parsed) {
+        throw lastErr || new Error('Failed to generate valid recommendations.');
+      }
 
       res.json({
         success: true,

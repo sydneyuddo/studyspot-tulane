@@ -61,7 +61,8 @@ test('distance formatting uses approximate notation without duplicate straight-l
   assert.equal(formatDistance(150), '~150m');
   assert.equal(formatDistance(1609), '~1.0 mi');
   // Small distances within building footprint do not imply someone is outside
-  assert.match(formatProximityLabel(25, 20), /in or near building/);
+  assert.match(formatProximityLabel(25, 20), /inside or at building/);
+  assert.match(formatProximityLabel(54, 25), /inside or at building/);
   // Larger distances use clean approximate distance
   assert.equal(formatProximityLabel(350, 15), 'Approx. ~350m');
   // Spherical Haversine calculation works reliably for Tulane campus coordinates
