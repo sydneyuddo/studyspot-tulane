@@ -31,6 +31,7 @@ export default function App() {
 
   // Selection & Modal State
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  const [detailsSpotId, setDetailsSpotId] = useState<string | null>(null);
   const [checkInSpot, setCheckInSpot] = useState<Spot | null>(null);
   const [historySpot, setHistorySpot] = useState<Spot | null>(null);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState<boolean>(false);
@@ -194,6 +195,21 @@ export default function App() {
       });
   }, [spots, selectedCategory, searchQuery, sortBy]);
 
+  const handleShowDetails = useCallback((spot: Spot) => {
+    setSelectedSpotId(spot.id);
+    setDetailsSpotId(spot.id);
+    setViewMode('cards');
+  }, []);
+
+  useEffect(() => {
+    if (viewMode !== 'cards' || !detailsSpotId) return;
+    const card = document.getElementById(`spot-card-${detailsSpotId}`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.focus({ preventScroll: true });
+    setDetailsSpotId(null);
+  }, [viewMode, detailsSpotId]);
+
   const activeSpot = useMemo(() => {
     return spots.find((s) => s.id === selectedSpotId) || null;
   }, [spots, selectedSpotId]);
@@ -265,6 +281,7 @@ export default function App() {
                   spots={filteredSpots}
                   selectedSpotId={selectedSpotId}
                   onSelectSpot={(spot) => setSelectedSpotId(spot.id)}
+                  onShowDetails={handleShowDetails}
                   onOpenCheckIn={(spot) => setCheckInSpot(spot)}
                   userLocation={userLocation}
                   onUseLocation={handleUseLocation}
@@ -335,6 +352,7 @@ export default function App() {
                     spots={filteredSpots}
                     selectedSpotId={selectedSpotId}
                     onSelectSpot={(spot) => setSelectedSpotId(spot.id)}
+                  onShowDetails={handleShowDetails}
                     onOpenCheckIn={(spot) => setCheckInSpot(spot)}
                     userLocation={userLocation}
                     onUseLocation={handleUseLocation}
@@ -430,3 +448,4 @@ export default function App() {
     </div>
   );
 }
+
