@@ -290,7 +290,7 @@ export default function App() {
                   selectedSpotId={selectedSpotId}
                   onSelectSpot={(spot) => setSelectedSpotId(spot.id)}
                   onOpenCheckIn={(spot) => setCheckInSpot(spot)}
-                  onOpenDetails={(spot) => setDetailsSpot(spot)}
+                  onShowDetails={(spot: Spot) => setDetailsSpot(spot)}
                   userLocation={userLocation}
                   onUseLocation={handleUseLocation}
                   isLocating={isLocating}
@@ -361,7 +361,7 @@ export default function App() {
                     selectedSpotId={selectedSpotId}
                     onSelectSpot={(spot) => setSelectedSpotId(spot.id)}
                     onOpenCheckIn={(spot) => setCheckInSpot(spot)}
-                    onOpenDetails={(spot) => setDetailsSpot(spot)}
+                    onShowDetails={(spot: Spot) => setDetailsSpot(spot)}
                     userLocation={userLocation}
                     onUseLocation={handleUseLocation}
                     isLocating={isLocating}
