@@ -80,6 +80,9 @@ export const LocationCard: React.FC<LocationCardProps> = ({
 
   return (
     <div
+      id={`spot-card-${spot.id}`}
+      tabIndex={-1}
+      aria-label={`${spot.name} details`}
       onClick={() => onSelect(spot)}
       className={`group relative bg-white rounded-2xl border p-4 sm:p-5 transition-all duration-200 cursor-pointer shadow-xs ${
         isSelected
@@ -233,3 +236,4 @@ export const LocationCard: React.FC<LocationCardProps> = ({
     </div>
   );
 };
+
