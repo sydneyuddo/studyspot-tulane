@@ -8,6 +8,7 @@ interface CampusMapProps {
   spots: Spot[];
   selectedSpotId: string | null;
   onSelectSpot: (spot: Spot) => void;
+  onShowDetails: (spot: Spot) => void;
   onOpenCheckIn: (spot: Spot) => void;
   userLocation: UserLocation | null;
   onUseLocation: () => void;
@@ -18,6 +19,7 @@ export const CampusMap: React.FC<CampusMapProps> = ({
   spots,
   selectedSpotId,
   onSelectSpot,
+  onShowDetails,
   onOpenCheckIn,
   userLocation,
   onUseLocation,
@@ -164,14 +166,15 @@ export const CampusMap: React.FC<CampusMapProps> = ({
         const detailsBtn = document.getElementById(`map-details-${spot.id}`);
         if (detailsBtn) {
           detailsBtn.onclick = () => {
-            onSelectSpot(spot);
+            marker.closePopup();
+            onShowDetails(spot);
           };
         }
       });
 
       markersRef.current[spot.id] = marker;
     });
-  }, [spots, selectedSpotId, onSelectSpot, onOpenCheckIn]);
+  }, [spots, selectedSpotId, onSelectSpot, onOpenCheckIn, onShowDetails]);
 
   // Center on selected spot if changed
   useEffect(() => {
@@ -274,3 +277,4 @@ export const CampusMap: React.FC<CampusMapProps> = ({
     </div>
   );
 };
+
