@@ -30,6 +30,9 @@ export const CampusMap: React.FC<CampusMapProps> = ({
   const markersRef = useRef<{ [id: string]: L.Marker }>({});
   const userMarkerRef = useRef<L.CircleMarker | null>(null);
   const userAccuracyCircleRef = useRef<L.Circle | null>(null);
+  // Popup nodes outlive React renders. Read the latest callbacks without rebuilding markers.
+  const actionsRef = useRef({ onSelectSpot, onShowDetails, onOpenCheckIn });
+  actionsRef.current = { onSelectSpot, onShowDetails, onOpenCheckIn };
 
   // Initialize Map
   useEffect(() => {
@@ -153,29 +156,26 @@ export const CampusMap: React.FC<CampusMapProps> = ({
       marker.bindPopup(popupContent, { maxWidth: 280, closeButton: false });
 
       marker.on('click', () => {
-        onSelectSpot(spot);
+        actionsRef.current.onSelectSpot(spot);
       });
 
-      marker.on('popupopen', () => {
-        const checkinBtn = document.getElementById(`map-checkin-${spot.id}`);
-        if (checkinBtn) {
-          checkinBtn.onclick = () => {
-            marker.closePopup();
-            onOpenCheckIn(spot);
-          };
-        }
-        const detailsBtn = document.getElementById(`map-details-${spot.id}`);
-        if (detailsBtn) {
-          detailsBtn.onclick = () => {
-            marker.closePopup();
-            onShowDetails(spot);
-          };
-        }
-      });
+      // Bind directly to this popup, before it opens. Global IDs could resolve to a
+      // closing popup during Leaflet animations and leave the visible buttons inert.
+      const bindAction = (selector: string, action: () => void) => {
+        const button = popupContent.querySelector<HTMLButtonElement>(selector)!;
+        button.type = 'button';
+        button.addEventListener('click', (event) => {
+          L.DomEvent.stop(event);
+          map.closePopup();
+          action();
+        });
+      };
+      bindAction(`#map-checkin-${spot.id}`, () => actionsRef.current.onOpenCheckIn(spot));
+      bindAction(`#map-details-${spot.id}`, () => actionsRef.current.onShowDetails(spot));
 
       markersRef.current[spot.id] = marker;
     });
-  }, [spots, selectedSpotId, onSelectSpot, onOpenCheckIn, onShowDetails]);
+  }, [spots]);
 
   // Center on selected spot if changed
   useEffect(() => {

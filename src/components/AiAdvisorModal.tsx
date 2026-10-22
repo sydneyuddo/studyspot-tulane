@@ -1,5 +1,5 @@
 import { useModalFocus } from '../utils/useModalFocus.ts';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Spot, RecommendationResponse } from '../types.ts';
 import { 
   X, 
@@ -37,82 +37,57 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
   const [result, setResult] = useState<RecommendationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Pre-warm TCP connection and keep-alive while student selects preferences
+  const inFlightRef = useRef<AbortController | null>(null);
   useEffect(() => {
-    if (isOpen) {
-      fetch('/api/health').catch(() => {});
+    if (!isOpen) {
+      inFlightRef.current?.abort();
+      inFlightRef.current = null;
+      setLoading(false);
     }
+    return () => { inFlightRef.current?.abort(); };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleGetRecommendations = async () => {
+    if (inFlightRef.current) return;
+    const controller = new AbortController();
+    inFlightRef.current = controller;
     setLoading(true);
     setError(null);
     setResult(null);
-
-    // Seamless automatic retry loop ensures recommendations succeed on first user try
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timeoutId = controller ? setTimeout(() => controller.abort(), 35000) : null;
-
-        const res = await fetch('/api/recommendations', {
-          method: 'POST',
-          signal: controller?.signal,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            preference: priority,
-            studyMode,
-            distances: Object.fromEntries(
-              spots.filter((s) => Number.isFinite(s.distanceMeters)).map((s) => [s.id, s.distanceMeters])
-            ),
-          }),
-        });
-
-        if (timeoutId) clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          let msg = 'Failed to fetch recommendations';
-          try {
-            const contentType = res.headers.get('content-type') || '';
-            if (contentType.includes('application/json')) {
-              const errData = await res.json();
-              msg = errData.error || msg;
-            } else {
-              msg = 'AI recommendation service is temporarily unavailable.';
-            }
-          } catch {
-            msg = 'AI recommendation service is temporarily unavailable.';
-          }
-          throw new Error(msg);
-        }
-
-        const data = await res.json();
-        if (!data?.data?.recommendations) {
-          throw new Error('Received unexpected response format.');
-        }
-
-        setResult(data.data);
-        setError(null);
+    // Database <=10s, Gemini <=2x14s + backoff; allow response overhead.
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+    try {
+      const res = await fetch('/api/recommendations', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preference: priority,
+          studyMode,
+          distances: Object.fromEntries(spots.filter(s => Number.isFinite(s.distanceMeters)).map(s => [s.id, s.distanceMeters])),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'AI service is temporarily unavailable. Please retry shortly.');
+      if (!data?.success || !data?.data?.summary || !Array.isArray(data?.data?.recommendations) || !data.data.recommendations.length) {
+        throw new Error('The AI returned incomplete recommendations. Please retry.');
+      }
+      if (inFlightRef.current === controller) setResult(data.data);
+    } catch (err: any) {
+      if (inFlightRef.current === controller) {
+        setError(err?.name === 'AbortError'
+          ? 'The AI request timed out. Please retry shortly.'
+          : err?.message || 'AI could not complete this request. Please retry shortly.');
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      if (inFlightRef.current === controller) {
+        inFlightRef.current = null;
         setLoading(false);
-        return; // Success on first try
-      } catch (err: any) {
-        console.warn(`Advisor request notification (attempt ${attempt + 1}):`, err?.message || err);
-        if (attempt === 0) {
-          // Automatic seamless background retry so the user never sees an error screen
-          await new Promise((r) => setTimeout(r, 600));
-          continue;
-        }
-
-        let userFriendlyMessage = err?.message || 'Error communicating with Gemini Advisor';
-        if (err?.name === 'AbortError' || String(err?.message || '').toLowerCase().includes('abort')) {
-          userFriendlyMessage = 'The request took longer than expected to reach the campus AI service. Please tap Retry.';
-        }
-        setError(userFriendlyMessage);
       }
     }
-    setLoading(false);
   };
 
   const priorityOptions = [
@@ -228,6 +203,7 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
             </button>
           </div>
 
+          {loading && <p role="status" className="text-xs text-slate-600">Checking current reports and asking Gemini. A temporary connection failure is retried once automatically; please keep this window open.</p>}
           {/* Error Banner with Explicit Retry */}
           {error && (
             <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-2">
