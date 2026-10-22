@@ -52,15 +52,15 @@ StudySpot includes initial Uptown campus locations with approximate centroid coo
 ## 📱 Mobile Device Testing Checklist
 
 ### iPhone Safari
-- [x] Geolocation prompt triggers cleanly; denied and timeout states display actionable instructions without breaking manual browsing.
-- [x] Straight-line distances sort accurately.
-- [x] Camera sheet triggered via native `capture="environment"`. Canvas compression reduces payload to <500KB before upload.
-- [x] Minimum 44px touch targets on buttons and input selectors.
+- [ ] Geolocation prompt triggers cleanly; denied and timeout states display actionable instructions without breaking manual browsing.
+- [ ] Straight-line distances sort accurately.
+- [ ] Camera sheet triggered via native `capture="environment"`. Canvas compression reduces payload to <500KB before upload.
+- [ ] Minimum 44px touch targets on buttons and input selectors.
 
 ### Android Chrome
-- [x] Geolocation permission handled with instant distance updates.
-- [x] Leaflet map gestures (pan, pinch-to-zoom) responsive with OSM attribution.
-- [x] Form inputs use `text-base` / `16px` to prevent unwanted iOS Safari zooming.
+- [ ] Geolocation permission handled with instant distance updates.
+- [ ] Leaflet map gestures (pan, pinch-to-zoom) responsive with OSM attribution.
+- [ ] Form inputs use `text-base` / `16px` to prevent unwanted iOS Safari zooming.
 
 ---
 
@@ -86,3 +86,9 @@ StudySpot includes initial Uptown campus locations with approximate centroid coo
 | **Rate Limiting** | `POST /api/spots/pjs-stern/reports` | Rapid duplicate check-in | 429 Too Many Requests | Blocked with 45s cooldown notice |
 | **Report Freshness Filter** | `GET /api/spots` | Spot with 0 reports | 200 OK | Correctly shows `hasRecentReports: false` |
 | **AI Demand Handling** | `POST /api/recommendations` | Spike in Gemini demand | 503 Unavailable | Explicit error returned with retry option |
+
+
+
+## Corrections awaiting deployment
+
+Firestore is now authoritative for all report reads and awaited writes. Database failure returns an error rather than a successful local-only check-in. Deploy the updated `firestore.rules` before publishing the updated app (including support for unknown outlets). Gemini uses the server-only GEMINI_MODEL setting; its default preserves the existing deployment model. A real successful Gemini call still needs verification with the deployment credentials. AI errors and malformed responses no longer produce fabricated findings. Phone tests above must be performed on real devices before marking them complete.

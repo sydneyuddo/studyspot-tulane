@@ -120,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'bg-blue-50 text-blue-800 border-blue-200'
                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
-            title={locationError || (userLocation ? 'Location active: Distances sorted' : 'Enable GPS to calculate walking distance')}
+            title={locationError || (userLocation ? 'Location active: Distances sorted' : 'Enable GPS to calculate straight-line distance')}
           >
             <Navigation
               className={`w-4 h-4 ${
@@ -200,6 +200,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
+            aria-label="Search study spaces"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -250,3 +251,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

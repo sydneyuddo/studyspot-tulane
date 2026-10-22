@@ -1,3 +1,4 @@
+import { useModalFocus } from '../utils/useModalFocus.ts';
 import React, { useState } from 'react';
 import { Spot, RecommendationResponse } from '../types.ts';
 import { 
@@ -29,6 +30,7 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
   onClose,
   onSelectSpot,
 }) => {
+  const modalRef = useModalFocus(isOpen, onClose);
   const [priority, setPriority] = useState<string>('Quiet focus (Silent or low noise)');
   const [studyMode, setStudyMode] = useState<string>('Solo deep work');
   const [loading, setLoading] = useState<boolean>(false);
@@ -45,10 +47,12 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
     try {
       const res = await fetch('/api/recommendations', {
         method: 'POST',
+        signal: AbortSignal.timeout(30000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           preference: priority,
           studyMode,
+          distances: Object.fromEntries(spots.filter(s => Number.isFinite(s.distanceMeters)).map(s => [s.id, s.distanceMeters])),
         }),
       });
 
@@ -81,7 +85,7 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
+    <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="StudySpot dialog" className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div 
         className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 pb-safe"
         onClick={(e) => e.stopPropagation()}
@@ -185,13 +189,14 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-bold text-amber-900">AI Service Temporarily Unavailable</p>
+                  <p className="font-bold text-amber-900">AI Request Could Not Complete</p>
                   <p className="text-[11px] text-amber-800 mt-0.5">{error}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleGetRecommendations}
+                disabled={loading}
                 className="w-full mt-2 min-h-[40px] px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Sparkles className="w-3.5 h-3.5" /> Retry AI Recommendation
@@ -289,3 +294,4 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
     </div>
   );
 };
+

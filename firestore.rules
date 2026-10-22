@@ -13,8 +13,10 @@ service cloud.firestore {
              data.spotId is string && data.spotId.size() <= 64 &&
              data.crowd in ['empty', 'light', 'moderate', 'busy', 'packed'] &&
              data.noise in ['silent', 'quiet', 'moderate', 'loud'] &&
-             data.outlets in ['plentiful', 'some', 'rare', 'none'] &&
+             data.outlets in ['plentiful', 'some', 'rare', 'none', 'unknown'] &&
              data.timestamp is int &&
+             data.timestamp >= request.time.toMillis() - 300000 &&
+             data.timestamp <= request.time.toMillis() + 60000 &&
              (!('note' in data) || (data.note is string && data.note.size() <= 280)) &&
              (!('floorOrArea' in data) || (data.floorOrArea is string && data.floorOrArea.size() <= 80)) &&
              (!('hasPhotoAnalysis' in data) || (data.hasPhotoAnalysis is bool));
@@ -28,8 +30,9 @@ service cloud.firestore {
     // Study spot peer check-ins
     match /reports/{reportId} {
       allow read: if true;
-      allow create: if isValidId(reportId) && isValidSpotReport(request.resource.data);
+      allow create: if isValidId(reportId) && request.resource.data.id == reportId && isValidSpotReport(request.resource.data);
       allow update, delete: if false;
     }
   }
 }
+

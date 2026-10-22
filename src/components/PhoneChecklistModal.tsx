@@ -1,3 +1,4 @@
+import { useModalFocus } from '../utils/useModalFocus.ts';
 import React from 'react';
 import { 
   X, 
@@ -18,10 +19,11 @@ export const PhoneChecklistModal: React.FC<PhoneChecklistModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const modalRef = useModalFocus(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
+    <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="StudySpot dialog" className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div 
         className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 pb-safe"
         onClick={(e) => e.stopPropagation()}
@@ -140,3 +142,4 @@ export const PhoneChecklistModal: React.FC<PhoneChecklistModalProps> = ({
     </div>
   );
 };
+

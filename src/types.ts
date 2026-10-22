@@ -1,6 +1,6 @@
 export type CrowdLevel = 'empty' | 'light' | 'moderate' | 'busy' | 'packed';
 export type NoiseLevel = 'silent' | 'quiet' | 'moderate' | 'loud';
-export type OutletAvailability = 'plentiful' | 'some' | 'rare' | 'none';
+export type OutletAvailability = 'plentiful' | 'some' | 'rare' | 'none' | 'unknown';
 
 export interface SpotReport {
   id: string;
@@ -83,3 +83,4 @@ export interface RecommendationResponse {
   recommendations: RecommendationItem[];
   generatedAt: number;
 }
+
