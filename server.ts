@@ -70,24 +70,36 @@ async function loadReports(spotId?: string): Promise<SpotReport[]> {
   } catch (error) { firestoreAvailable = false; throw error; }
 }
 
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+const DEFAULT_MODEL = 'gemini-3-flash-preview';
 
 async function generateAI(request: any) {
   if (!ai) throw new Error('AI is not configured.');
-  const modelToUse = process.env.GEMINI_MODEL || DEFAULT_MODEL;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  const primaryModel = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  const candidateModels = Array.from(new Set([
+    primaryModel,
+    'gemini-3-flash-preview',
+    'gemini-flash-latest',
+    'gemini-3.1-flash-lite',
+  ]));
+
+  let lastError: any = null;
+  for (const model of candidateModels) {
     try {
       return await ai.models.generateContent({
         ...request,
-        model: modelToUse,
-        config: { ...request.config, httpOptions: { timeout: 12000 } },
+        model,
+        config: { ...request.config },
       });
     } catch (err: any) {
-      if (attempt === 1 || ![429, 500, 502, 503, 504].includes(Number(err.status))) throw err;
-      await new Promise(resolve => setTimeout(resolve, 600));
+      lastError = err;
+      const status = Number(err?.status || err?.statusCode || 0);
+      console.warn(`Gemini model ${model} returned error status ${status}: ${err?.message || ''}`);
+      if (![429, 500, 502, 503, 504].includes(status)) {
+        throw err;
+      }
     }
   }
-  throw new Error('AI request failed.');
+  throw lastError || new Error('AI request failed across all candidate models.');
 }
 
 // In-memory rate limiting map: ip:spotId -> timestamp ms
@@ -450,7 +462,11 @@ Return ONLY a valid JSON object matching this schema:
   } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true, host: '0.0.0.0' },
+      server: {
+        middlewareMode: true,
+        host: '0.0.0.0',
+        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
