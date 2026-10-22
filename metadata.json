@@ -1,0 +1,11 @@
+{
+  "name": "StudySpot Tulane",
+  "description": "Real-time crowdsourced campus study spot finder for Tulane University students with verified locations, live peer check-ins, interactive campus map, and Gemini AI study recommendations.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidSpotReport(data) {
+      return data.keys().hasAll(['id', 'spotId', 'crowd', 'noise', 'outlets', 'timestamp']) &&
+             data.keys().hasOnly(['id', 'spotId', 'crowd', 'noise', 'outlets', 'timestamp', 'floorOrArea', 'note', 'hasPhotoAnalysis', 'photoEstimates']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.spotId is string && data.spotId.size() <= 64 &&
+             data.crowd in ['empty', 'light', 'moderate', 'busy', 'packed'] &&
+             data.noise in ['silent', 'quiet', 'moderate', 'loud'] &&
+             data.outlets in ['plentiful', 'some', 'rare', 'none'] &&
+             data.timestamp is int &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 280)) &&
+             (!('floorOrArea' in data) || (data.floorOrArea is string && data.floorOrArea.size() <= 80)) &&
+             (!('hasPhotoAnalysis' in data) || (data.hasPhotoAnalysis is bool));
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Study spot peer check-ins
+    match /reports/{reportId} {
+      allow read: if true;
+      allow create: if isValidId(reportId) && isValidSpotReport(request.resource.data);
+      allow update, delete: if false;
+    }
+  }
+}

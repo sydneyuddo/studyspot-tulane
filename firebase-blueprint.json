@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "SpotReport": {
+      "title": "SpotReport",
+      "description": "Anonymous study spot condition report submitted by a Tulane student.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "spotId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "crowd": {
+          "type": "string",
+          "enum": ["empty", "light", "moderate", "busy", "packed"]
+        },
+        "noise": {
+          "type": "string",
+          "enum": ["silent", "quiet", "moderate", "loud"]
+        },
+        "outlets": {
+          "type": "string",
+          "enum": ["plentiful", "some", "rare", "none"]
+        },
+        "floorOrArea": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 280
+        },
+        "timestamp": {
+          "type": "integer"
+        },
+        "hasPhotoAnalysis": {
+          "type": "boolean"
+        },
+        "photoEstimates": {
+          "type": "object",
+          "properties": {
+            "visibleSeats": { "type": "string", "maxLength": 100 },
+            "lighting": { "type": "string", "maxLength": 100 },
+            "visibleOutlets": { "type": "string", "maxLength": 100 }
+          }
+        }
+      },
+      "required": ["id", "spotId", "crowd", "noise", "outlets", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/reports/{reportId}": {
+      "schema": "SpotReport",
+      "description": "Collection of crowdsourced study spot check-in reports."
+    }
+  }
+}
