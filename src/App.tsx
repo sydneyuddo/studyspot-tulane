@@ -7,7 +7,6 @@ import { CheckInModal } from './components/CheckInModal.tsx';
 import { HistoryModal } from './components/HistoryModal.tsx';
 import { AiAdvisorModal } from './components/AiAdvisorModal.tsx';
 import { PhoneChecklistModal } from './components/PhoneChecklistModal.tsx';
-import { SpotDetailsModal } from './components/SpotDetailsModal.tsx';
 import { calculateDistanceMeters } from './utils/geo.ts';
 import { 
   Compass, 
@@ -32,7 +31,6 @@ export default function App() {
 
   // Selection & Modal State
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
-  const [detailsSpot, setDetailsSpot] = useState<Spot | null>(null);
   const [checkInSpot, setCheckInSpot] = useState<Spot | null>(null);
   const [historySpot, setHistorySpot] = useState<Spot | null>(null);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState<boolean>(false);
@@ -222,6 +220,22 @@ export default function App() {
     return spots.find((s) => s.id === selectedSpotId) || null;
   }, [spots, selectedSpotId]);
 
+  const [pendingCardId, setPendingCardId] = useState<string | null>(null);
+  const showSpotDetails = useCallback((spot: Spot) => {
+    setSelectedSpotId(spot.id);
+    setViewMode('cards');
+    setPendingCardId(spot.id);
+  }, []);
+  useEffect(() => {
+    if (viewMode !== 'cards' || !pendingCardId) return;
+    const card = document.getElementById(`spot-card-${pendingCardId}`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.focus({ preventScroll: true });
+      setPendingCardId(null);
+    }
+  }, [viewMode, pendingCardId, filteredSpots]);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       {/* Header with branding, search, view toggles & GPS */}
@@ -290,7 +304,7 @@ export default function App() {
                   selectedSpotId={selectedSpotId}
                   onSelectSpot={(spot) => setSelectedSpotId(spot.id)}
                   onOpenCheckIn={(spot) => setCheckInSpot(spot)}
-                  onShowDetails={(spot: Spot) => setDetailsSpot(spot)}
+                  onShowDetails={showSpotDetails}
                   userLocation={userLocation}
                   onUseLocation={handleUseLocation}
                   isLocating={isLocating}
@@ -363,7 +377,7 @@ export default function App() {
                     selectedSpotId={selectedSpotId}
                     onSelectSpot={(spot) => setSelectedSpotId(spot.id)}
                     onOpenCheckIn={(spot) => setCheckInSpot(spot)}
-                    onShowDetails={(spot: Spot) => setDetailsSpot(spot)}
+                    onShowDetails={showSpotDetails}
                     userLocation={userLocation}
                     onUseLocation={handleUseLocation}
                     isLocating={isLocating}
@@ -416,23 +430,6 @@ export default function App() {
       </footer>
 
       {/* Modals */}
-      {detailsSpot && (
-        <SpotDetailsModal
-          spot={detailsSpot}
-          isOpen={Boolean(detailsSpot)}
-          onClose={() => setDetailsSpot(null)}
-          onOpenCheckIn={(spot) => {
-            setDetailsSpot(null);
-            setCheckInSpot(spot);
-          }}
-          onOpenHistory={(spot) => {
-            setDetailsSpot(null);
-            setHistorySpot(spot);
-          }}
-          userLocation={userLocation}
-        />
-      )}
-
       {checkInSpot && (
         <CheckInModal
           spot={checkInSpot}
@@ -475,3 +472,4 @@ export default function App() {
     </div>
   );
 }
+
