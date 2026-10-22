@@ -1,3 +1,4 @@
+import { useModalFocus } from '../utils/useModalFocus.ts';
 import React, { useState, useRef } from 'react';
 import { Spot, CrowdLevel, NoiseLevel, OutletAvailability, PhotoAnalysisResult } from '../types.ts';
 import { 
@@ -29,15 +30,15 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  if (!isOpen) return null;
+  const modalRef = useModalFocus(isOpen, onClose);
 
   // Form State
   const [selectedFloor, setSelectedFloor] = useState<string>(
     spot.floorsOrZones[0] || ''
   );
-  const [crowd, setCrowd] = useState<CrowdLevel>('moderate');
-  const [noise, setNoise] = useState<NoiseLevel>('quiet');
-  const [outlets, setOutlets] = useState<OutletAvailability>('some');
+  const [crowd, setCrowd] = useState<CrowdLevel | null>(null);
+  const [noise, setNoise] = useState<NoiseLevel | null>(null);
+  const [outlets, setOutlets] = useState<OutletAvailability>('unknown');
   const [note, setNote] = useState<string>('');
 
   // Photo State
@@ -61,9 +62,12 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
     setPhotoAnalysis(null);
     setPhotoAnalysisError(null);
 
+    const failImage = () => setPhotoAnalysisError('This image could not be opened. Try a JPEG, PNG, or WebP photo.');
     const reader = new FileReader();
+    reader.onerror = failImage;
     reader.onload = (e) => {
       const img = new Image();
+      img.onerror = failImage;
       img.onload = () => {
         // Resize to maximum 1200x1200px while maintaining aspect ratio
         const maxDim = 1200;
@@ -84,7 +88,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) { failImage(); return; }
 
         ctx.drawImage(img, 0, 0, width, height);
         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
@@ -102,6 +106,9 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(file.type)) {
+        setPhotoAnalysisError('Please choose an image file.'); return;
+      }
       if (file.size > 15 * 1024 * 1024) {
         setPhotoAnalysisError('Image file is too large. Please select a photo under 15MB.');
         return;
@@ -127,6 +134,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
     try {
       const res = await fetch('/api/analyze-photo', {
         method: 'POST',
+        signal: AbortSignal.timeout(30000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageBase64: photoBase64,
@@ -160,6 +168,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
   // Submit check-in to shared persistent database
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!crowd || !noise) { setSubmitError('Please select the crowd and noise levels you observed.'); return; }
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -180,6 +189,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
 
       const res = await fetch(`/api/spots/${spot.id}/reports`, {
         method: 'POST',
+        signal: AbortSignal.timeout(30000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -202,8 +212,10 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
+    <div ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Report study conditions" className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div 
         className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 pb-safe"
         onClick={(e) => e.stopPropagation()}
@@ -247,6 +259,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                     Floor or Zone
                   </label>
                   <select
+                    aria-label="Floor or zone"
                     value={selectedFloor}
                     onChange={(e) => setSelectedFloor(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-700"
@@ -328,8 +341,8 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Power Outlets Available
                 </label>
-                <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-                  {(['plentiful', 'some', 'rare', 'none'] as OutletAvailability[]).map((level) => {
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                  {(['plentiful', 'some', 'rare', 'none', 'unknown'] as OutletAvailability[]).map((level) => {
                     const isPicked = outlets === level;
                     return (
                       <button
@@ -363,6 +376,8 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                   Analyze photo with Gemini AI to estimate visible seating, lighting, and outlets. 
                   <strong className="text-slate-700"> Photos are analyzed in memory and NOT stored or made public.</strong> Please avoid identifiable people.
                 </p>
+
+                {!photoBase64 && photoAnalysisError && <p role="alert" className="text-sm text-rose-700 mb-3">{photoAnalysisError}</p>}
 
                 {/* Hidden File Inputs */}
                 <input
@@ -498,6 +513,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
                   </span>
                 </div>
                 <textarea
+                  aria-label="Optional tip for classmates"
                   value={note}
                   onChange={(e) => setNote(e.target.value.slice(0, 280))}
                   placeholder="e.g. 4th floor quiet carrels have plenty of open seats near north windows, AC running cold..."
@@ -531,7 +547,7 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
             <button
               type="submit"
               form="checkin-form"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !crowd || !noise}
               className="min-h-[44px] flex-1 sm:flex-initial px-6 py-2.5 bg-emerald-800 hover:bg-emerald-900 active:scale-[0.98] text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmitting ? (
@@ -549,3 +565,4 @@ export const CheckInModal: React.FC<CheckInModalProps> = ({
     </div>
   );
 };
+
