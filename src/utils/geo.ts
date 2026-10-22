@@ -19,16 +19,28 @@ export function calculateDistanceMeters(
 }
 
 /**
- * Formats distance calculated via Haversine formula as straight-line distance.
- * Note: Haversine calculates as-the-crow-flies spherical distance, not ground pedestrian walking path.
+ * Formats distance calculated via Haversine formula as an approximate distance.
  */
 export function formatDistance(meters?: number): string {
   if (meters === undefined || isNaN(meters)) return '';
   if (meters < 1000) {
-    return `${meters}m straight-line`;
+    return `~${meters}m`;
   }
-  const miles = (meters / 1609.34).toFixed(2);
-  return `${miles} mi straight-line`;
+  const miles = (meters / 1609.34).toFixed(1);
+  return `~${miles} mi`;
+}
+
+/**
+ * Returns an approximate proximity label taking GPS uncertainty into account.
+ * Avoids claiming someone is outside when within building footprint or accuracy radius.
+ */
+export function formatProximityLabel(meters?: number, accuracyMeters?: number): string {
+  if (meters === undefined || isNaN(meters)) return '';
+  const uncertaintyRadius = Math.max(45, (accuracyMeters || 20) * 1.15);
+  if (meters <= uncertaintyRadius) {
+    return `Approx. ${formatDistance(meters)} (in or near building)`;
+  }
+  return `Approx. ${formatDistance(meters)}`;
 }
 
 export function formatRelativeTime(timestamp: number): string {

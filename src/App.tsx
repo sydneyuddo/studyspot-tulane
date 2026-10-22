@@ -330,6 +330,7 @@ export default function App() {
                           setSelectedSpotId(s.id);
                           setViewMode('map');
                         }}
+                        userLocation={userLocation}
                       />
                     ))}
                   </div>
@@ -350,6 +351,7 @@ export default function App() {
                       onOpenCheckIn={(s) => setCheckInSpot(s)}
                       onOpenHistory={(s) => setHistorySpot(s)}
                       onShowOnMap={(s) => setSelectedSpotId(s.id)}
+                      userLocation={userLocation}
                     />
                   ))}
                 </div>
@@ -427,6 +429,7 @@ export default function App() {
             setDetailsSpot(null);
             setHistorySpot(spot);
           }}
+          userLocation={userLocation}
         />
       )}
 

@@ -74,13 +74,13 @@ const DEFAULT_MODEL = 'gemini-3-flash-preview';
 
 async function generateAI(request: any) {
   if (!ai) throw new Error('AI is not configured.');
-  const primaryModel = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  // Prioritize verified-fast gemini-3-flash-preview to avoid 30s hangs on high-demand variants
   const candidateModels = Array.from(new Set([
-    primaryModel,
     'gemini-3-flash-preview',
+    process.env.GEMINI_MODEL,
     'gemini-flash-latest',
     'gemini-3.1-flash-lite',
-  ]));
+  ])).filter(Boolean) as string[];
 
   let lastError: any = null;
   for (const model of candidateModels) {
@@ -88,13 +88,16 @@ async function generateAI(request: any) {
       return await ai.models.generateContent({
         ...request,
         model,
-        config: { ...request.config },
+        config: {
+          ...request.config,
+          httpOptions: { timeout: 12000 },
+        },
       });
     } catch (err: any) {
       lastError = err;
       const status = Number(err?.status || err?.statusCode || 0);
       console.warn(`Gemini model ${model} returned error status ${status}: ${err?.message || ''}`);
-      if (![429, 500, 502, 503, 504].includes(status)) {
+      if (![400, 429, 500, 502, 503, 504].includes(status)) {
         throw err;
       }
     }
@@ -465,7 +468,7 @@ Return ONLY a valid JSON object matching this schema:
       server: {
         middlewareMode: true,
         host: '0.0.0.0',
-        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
+        hmr: false,
       },
       appType: 'spa',
     });

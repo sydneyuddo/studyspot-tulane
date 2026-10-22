@@ -81,7 +81,7 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
 
       setResult(data.data);
     } catch (err: any) {
-      console.error('Advisor error:', err);
+      console.warn('Advisor request notification:', err?.message || err);
       setError(err.message || 'Error communicating with Gemini Advisor');
     } finally {
       setLoading(false);
@@ -91,7 +91,7 @@ export const AiAdvisorModal: React.FC<AiAdvisorModalProps> = ({
   const priorityOptions = [
     { id: 'Quiet focus (Silent or low noise)', label: 'Quiet Focus', icon: VolumeX },
     { id: 'Abundant power outlets for laptop/tablet', label: 'Need Outlets', icon: BatteryCharging },
-    { id: 'Nearest straight-line distance', label: 'Closest Spot (Distance)', icon: MapPin },
+    { id: 'Nearest approximate distance', label: 'Closest Spot (Approx. Distance)', icon: MapPin },
     { id: 'Group discussion & collaborative space', label: 'Group Friendly', icon: Users },
     { id: 'Coffee, snacks & caffeine access', label: 'Coffee & Snacks', icon: Coffee },
   ];

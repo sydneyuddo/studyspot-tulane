@@ -56,3 +56,17 @@ test('synthetic test reports filter prevents displaying test probe records', () 
   assert.equal(status.currentStatus?.crowd, 'light');
 });
 
+test('distance formatting uses approximate notation without duplicate straight-line text', async () => {
+  const { formatDistance, formatProximityLabel, calculateDistanceMeters } = await import('../src/utils/geo.ts');
+  assert.equal(formatDistance(150), '~150m');
+  assert.equal(formatDistance(1609), '~1.0 mi');
+  // Small distances within building footprint do not imply someone is outside
+  assert.match(formatProximityLabel(25, 20), /in or near building/);
+  // Larger distances use clean approximate distance
+  assert.equal(formatProximityLabel(350, 15), 'Approx. ~350m');
+  // Spherical Haversine calculation works reliably for Tulane campus coordinates
+  const howieTToLbc = calculateDistanceMeters(29.9405, -90.1218, 29.9398, -90.1207);
+  assert.ok(howieTToLbc > 100 && howieTToLbc < 160);
+});
+
+

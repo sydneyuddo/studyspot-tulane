@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Spot, UserLocation } from '../types.ts';
-import { formatDistance } from '../utils/geo.ts';
+import { formatProximityLabel } from '../utils/geo.ts';
 import { MapPin, Navigation, Compass, Layers } from 'lucide-react';
 
 interface CampusMapProps {
@@ -29,6 +29,7 @@ export const CampusMap: React.FC<CampusMapProps> = ({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ [id: string]: L.Marker }>({});
   const userMarkerRef = useRef<L.CircleMarker | null>(null);
+  const userAccuracyCircleRef = useRef<L.Circle | null>(null);
 
   // Initialize Map
   useEffect(() => {
@@ -137,7 +138,7 @@ export const CampusMap: React.FC<CampusMapProps> = ({
           }"></span>
           ${statusText}
         </div>
-        ${spot.distanceMeters !== undefined ? `<div class="text-xs text-emerald-700 font-semibold mb-2">📍 ${formatDistance(spot.distanceMeters)}</div>` : ''}
+        ${spot.distanceMeters !== undefined ? `<div class="text-xs text-emerald-700 font-semibold mb-2">📍 ${formatProximityLabel(spot.distanceMeters, userLocation?.accuracy)}</div>` : ''}
         <div class="text-xs text-slate-600 mb-2 line-clamp-2">${spot.description}</div>
         <div class="flex gap-1.5 mt-2">
           <button id="map-checkin-${spot.id}" class="flex-1 bg-emerald-800 hover:bg-emerald-900 active:scale-95 text-white py-1.5 px-2 rounded-lg text-xs font-semibold shadow-sm transition">
@@ -192,12 +193,38 @@ export const CampusMap: React.FC<CampusMapProps> = ({
     }
   }, [selectedSpotId, spots]);
 
-  // Handle user location pulse marker
+  // Handle user location pulse marker and uncertainty circle
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     if (userLocation) {
+      const accuracyRadius = userLocation.accuracy || 20;
+      const isUncertain = accuracyRadius > 30;
+
+      // Accuracy uncertainty circle
+      if (!userAccuracyCircleRef.current) {
+        userAccuracyCircleRef.current = L.circle([userLocation.lat, userLocation.lng], {
+          radius: accuracyRadius,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.12,
+          color: '#2563eb',
+          weight: 1,
+          dashArray: '3, 4',
+        }).addTo(map);
+      } else {
+        userAccuracyCircleRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+        userAccuracyCircleRef.current.setRadius(accuracyRadius);
+      }
+
+      const popupHtml = `
+        <div style="font-size: 12px; line-height: 1.4; color: #1e293b;">
+          <strong>Estimated Position</strong><br/>
+          <span style="color: #64748b;">Accuracy: ±${Math.round(accuracyRadius)}m</span>
+          ${isUncertain ? '<br/><span style="color: #b45309; font-weight: 500;">Approximate estimate (indoor GPS may vary)</span>' : ''}
+        </div>
+      `;
+
       if (!userMarkerRef.current) {
         userMarkerRef.current = L.circleMarker([userLocation.lat, userLocation.lng], {
           radius: 8,
@@ -207,13 +234,20 @@ export const CampusMap: React.FC<CampusMapProps> = ({
           opacity: 1,
           fillOpacity: 0.9,
         }).addTo(map);
-        userMarkerRef.current.bindPopup('<b>You are here</b><br/>GPS Distance calculated locally');
+        userMarkerRef.current.bindPopup(popupHtml);
       } else {
         userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+        userMarkerRef.current.setPopupContent(popupHtml);
       }
-    } else if (userMarkerRef.current) {
-      userMarkerRef.current.remove();
-      userMarkerRef.current = null;
+    } else {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      if (userAccuracyCircleRef.current) {
+        userAccuracyCircleRef.current.remove();
+        userAccuracyCircleRef.current = null;
+      }
     }
   }, [userLocation]);
 

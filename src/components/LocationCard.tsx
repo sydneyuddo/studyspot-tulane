@@ -1,6 +1,6 @@
 import React from 'react';
-import { Spot } from '../types.ts';
-import { formatDistance, formatRelativeTime } from '../utils/geo.ts';
+import { Spot, UserLocation } from '../types.ts';
+import { formatProximityLabel, formatRelativeTime } from '../utils/geo.ts';
 import { 
   Clock, 
   MapPin, 
@@ -19,6 +19,7 @@ interface LocationCardProps {
   onOpenCheckIn: (spot: Spot) => void;
   onOpenHistory: (spot: Spot) => void;
   onShowOnMap?: (spot: Spot) => void;
+  userLocation?: UserLocation | null;
 }
 
 export const LocationCard: React.FC<LocationCardProps> = ({
@@ -28,6 +29,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
   onOpenCheckIn,
   onOpenHistory,
   onShowOnMap,
+  userLocation,
 }) => {
   const getCrowdBadge = () => {
     if (!spot.hasRecentReports || !spot.currentStatus) {
@@ -102,8 +104,8 @@ export const LocationCard: React.FC<LocationCardProps> = ({
             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>{spot.address}</span>
             {spot.distanceMeters !== undefined && (
-              <span className="font-semibold text-emerald-700 ml-1.5" title="Spherical straight-line distance calculated on device">
-                • {formatDistance(spot.distanceMeters)} (straight-line)
+              <span className="font-semibold text-emerald-700 ml-1.5" title="Approximate distance based on spherical coordinates">
+                • {formatProximityLabel(spot.distanceMeters, userLocation?.accuracy)}
               </span>
             )}
           </p>

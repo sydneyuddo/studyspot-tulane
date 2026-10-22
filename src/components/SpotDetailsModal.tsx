@@ -1,7 +1,7 @@
 import { useModalFocus } from '../utils/useModalFocus.ts';
 import React from 'react';
-import { Spot } from '../types.ts';
-import { formatDistance, formatRelativeTime } from '../utils/geo.ts';
+import { Spot, UserLocation } from '../types.ts';
+import { formatProximityLabel, formatRelativeTime } from '../utils/geo.ts';
 import { 
   X, 
   MapPin, 
@@ -23,6 +23,7 @@ interface SpotDetailsModalProps {
   onClose: () => void;
   onOpenCheckIn: (spot: Spot) => void;
   onOpenHistory: (spot: Spot) => void;
+  userLocation?: UserLocation | null;
 }
 
 export const SpotDetailsModal: React.FC<SpotDetailsModalProps> = ({
@@ -31,6 +32,7 @@ export const SpotDetailsModal: React.FC<SpotDetailsModalProps> = ({
   onClose,
   onOpenCheckIn,
   onOpenHistory,
+  userLocation,
 }) => {
   const modalRef = useModalFocus(isOpen, onClose);
 
@@ -91,8 +93,8 @@ export const SpotDetailsModal: React.FC<SpotDetailsModalProps> = ({
                 <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span>{spot.address}</span>
                 {spot.distanceMeters !== undefined && (
-                  <span className="font-semibold text-emerald-700 ml-1">
-                    • {formatDistance(spot.distanceMeters)} (straight-line)
+                  <span className="font-semibold text-emerald-700 ml-1" title="Approximate distance based on spherical coordinates">
+                    • {formatProximityLabel(spot.distanceMeters, userLocation?.accuracy)}
                   </span>
                 )}
               </p>
